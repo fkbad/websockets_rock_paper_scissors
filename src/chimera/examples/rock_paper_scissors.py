@@ -8,6 +8,7 @@ from typing import Dict, List, Optional, Set, Union
 from ..authoring import TwoPlayerGame, Player
 from .. import exceptions as exc
 
+# for personal reference :)
 RPSLS_RULES="""
             Rock crushes scissors.
             Rock crushes lizard
@@ -42,9 +43,6 @@ def get_move_set_for_game(subgame_id:str) -> Set[Move]:
                 "rps" : classic rock paper scissors
                 "rpsls" : rock paper scissors lizard spock
                           https://rpsls.net
-
-
-
 
     Output:
         Set of all allowable moves for the game
@@ -161,11 +159,17 @@ class Move:
 
 
 class RockPaperScissors(TwoPlayerGame):
-    # for now, not enough involved in status to make it separate
-    # STATUS_GAME_NOT_STARTED = "not-started"
-    # STATUS_WAITING_FOR_MOVES = "waiting-for-moves"
-    # STATUS_PROCESSING_CURRENT_ROUND = "processing-current-round"
-    # STATUS_DONE = "done"
+    """
+    class to represent any RockPaperScissors variant.
+
+    variance is handled through the "subgame_id" field that is fed into
+    get_move_set_for_game(subgame_id=)
+
+    """
+    VALID_SUBGAME_IDS = {
+            "rps" : "standard rock paper scissors",
+            "rpsls" :  "rock paper scissors lizard spock"
+            }
 
     def __init__(self, game_options=dict()):
         # game_options is, if not specified, the empty dictionary
@@ -193,6 +197,15 @@ class RockPaperScissors(TwoPlayerGame):
         # TODO, have this grab from game_options
         self.points_to_win:int = 3
 
+        # Unique Identified for the variant of RPS
+        # valid options and their descriptions found in
+        # RockPaperScissors.VALID_SUBGAME_IDS
+
+        # TODO have this grab from game options
+        self.subgame_id = "rpsls"
+
+        self.valid_moves = get_move_set_for_game(self.subgame_id)
+
 
     @property
     def game_state(self):
@@ -202,6 +215,10 @@ class RockPaperScissors(TwoPlayerGame):
 
         Outputs:
             state dictionary: {
+                "game_type" : {
+                    "id" : "rps" , ID corresponding to the particular subgame
+                    "description" : "standard rock paper scissors" description of the subgame
+                    }
                 "current_round" : {
                         "moves" : {
                             "[player_1_name]" : player 1's move,
@@ -233,7 +250,10 @@ class RockPaperScissors(TwoPlayerGame):
         players = [self.get_player_by_id(0),self.get_player_by_id(1)] 
         player_names = [player.name for player in players]
 
-        # first round
+        game_type_dict = self.get_game_type_for_game_state()
+        state["game_type"] = game_type_dict
+
+        # now round
         current_round = self.get_current_round_for_game_state(player_names = player_names)
         state["current_round"] = current_round
 
@@ -294,6 +314,21 @@ class RockPaperScissors(TwoPlayerGame):
     def on_end(self):
         pass
 
+
+    def get_game_type_for_game_state(self) -> Dict[str,Dict[str,str]]:
+        """
+        return the game_type dict as required for game_state
+
+        "game_type" : {
+            "id" : "rps" , ID corresponding to the particular subgame
+            "description" : "standard rock paper scissors" description of the subgame
+            }
+        """
+        game_type = {}
+        game_type["id"] = self.subgame_id
+        game_type["description"] = RockPaperScissors.VALID_SUBGAME_IDS[self.subgame_id]
+
+        return game_type
 
     def get_current_round_for_game_state(self,player_names: List[str]) -> Dict[str,Union[Dict[str,str], str]]:
         """
