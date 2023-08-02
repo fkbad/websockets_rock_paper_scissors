@@ -359,7 +359,7 @@ class RockPaperScissors(TwoPlayerGame):
         """
         result = {}
 
-        move_completed = self.move()
+        player_move = self.get_move_from_player_data(data)
 
         result["move"] = move_completed
 
@@ -375,6 +375,29 @@ class RockPaperScissors(TwoPlayerGame):
         # check if the round is over, if so, update points
 
         # check if the game is over, notifying thusly
+
+    def get_move_from_player_data(self,player_move_string:str):
+        """
+        returns the Move object from the games set of moves
+        for a string provided from a players `move` game-action
+
+        Inputs:
+            player_move_string: the string provided from the "data" field
+            of the "params" field of their request
+
+        Outputs:
+            the Move object with the same name as the player_move_string
+
+        Raises:
+            IncorrectMove : when the provided move name is not in 
+                            this game's valid moves
+        """
+        move = self.valid_moves.get(player_move_string)
+
+        if move is None:
+            raise exc.IncorrectMove
+        else:
+            return move
 
     def get_game_type_for_game_state(self) -> Dict[str,Dict[str,str]]:
         """
