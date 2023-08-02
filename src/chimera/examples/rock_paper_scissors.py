@@ -26,7 +26,7 @@ RPSLS_RULES="""
             Spock smashes scissors
             """
 
-def get_move_set_for_game(subgame_id:str) -> Set[Move]:
+def get_move_dict_for_game(subgame_id:str) -> Dict[str,Move]:
     """
     function to return the Move set 
     for any rock paper scissors like game
@@ -45,8 +45,12 @@ def get_move_set_for_game(subgame_id:str) -> Set[Move]:
                           https://rpsls.net
 
     Output:
-        Set of all allowable moves for the game
+        Dictionary of all allowable moves for the game
         with each Move having their `Move.moves_i_beat` set filled in
+
+        stored as : {
+                "move_name" : Move
+                }
     """
 
     returned_move_set: Set[Move] = set()
@@ -103,7 +107,9 @@ def get_move_set_for_game(subgame_id:str) -> Set[Move]:
             raise exc.IncorrectActionData(details=f"provided RPS-subgame id: {subgame_id} which is not either RPS or RPSLS")
 
     # return whatever move set has been constructed
-    return returned_move_set
+    # transform set into dictionary to return
+    return_dict = {move.name:move for move in returned_move_set}
+    return return_dict
 
 class Move:
     """
@@ -202,9 +208,9 @@ class RockPaperScissors(TwoPlayerGame):
         # RockPaperScissors.VALID_SUBGAME_IDS
 
         # TODO have this grab from game options
-        self.subgame_id = "rpsls"
+        self.subgame_id: str = "rpsls"
 
-        self.valid_moves = get_move_set_for_game(self.subgame_id)
+        self.valid_moves: Dict[str,Move] = get_move_dict_for_game(self.subgame_id)
 
 
     @property
@@ -250,15 +256,16 @@ class RockPaperScissors(TwoPlayerGame):
         players = [self.get_player_by_id(0),self.get_player_by_id(1)] 
         player_names = [player.name for player in players]
 
+        # first game type
         game_type_dict = self.get_game_type_for_game_state()
         state["game_type"] = game_type_dict
 
         # now round
-        current_round = self.get_current_round_for_game_state(player_names = player_names)
+        current_round = self.get_current_round_for_game_state(player_names= player_names)
         state["current_round"] = current_round
 
         # now points
-        points = self.get_points_for_game_state(player_names = player_names)
+        points = self.get_points_for_game_state(player_names= player_names)
         state["points"] = points
 
         # now history
@@ -314,6 +321,60 @@ class RockPaperScissors(TwoPlayerGame):
     def on_end(self):
         pass
 
+
+    def action_move(self,player: Player,data: str):
+        """
+        method called when a player sends a "move" game-action request 
+        to the server
+
+        specifically, they sent a request message for this match 
+        with the message["params"] containing the "action":"move"
+
+        Inputs:
+            player: Player object corresponding to the player making a move
+
+            data: the "data" field of the params. 
+                    I specify this to be either "Rock", "Paper", or "Scissors"
+
+                    considering adding another field for an incompleted move or disconnect
+
+        Outputs:
+            "result" parameter of the response message to be sent out to 
+            all players, only to be done on a successfully done game-action
+
+            otherwise, raises an exception
+
+            result format for a move is:
+                "result" : {
+                        "move": move that the server processed
+                        }
+
+            this is so the client gets feedback on what the server thinks they sent
+
+        Raises:
+            NotPlayerTurn
+            IncorrectActionData
+            IncorrectMove
+
+        """
+        result = {}
+
+        move_completed = self.move()
+
+        result["move"] = move_completed
+
+        return result
+
+        # check if player can make a move right now
+        # history is only set to an empty list once the game has started (.on_start() called)
+        # if the player hasn't made a move, update the current moves
+
+        # if the player has already made a move this round, let them update it 
+        # so long as the other player hasn't already made a move
+
+        # check if the round is over, if so, update points
+
+        # check if the game is over, notifying thusly
 
     def get_game_type_for_game_state(self) -> Dict[str,Dict[str,str]]:
         """
@@ -431,58 +492,5 @@ class RockPaperScissors(TwoPlayerGame):
 
 
 
-    def action_move(self,player: Player,data: str):
-        """
-        method called when a player sends a "move" game-action request 
-        to the server
-
-        specifically, they sent a request message for this match 
-        with the message["params"] containing the "action":"move"
-
-        Inputs:
-            player: Player object corresponding to the player making a move
-
-            data: the "data" field of the params. 
-                    I specify this to be either "Rock", "Paper", or "Scissors"
-
-                    considering adding another field for an incompleted move or disconnect
-
-        Outputs:
-            "result" parameter of the response message to be sent out to 
-            all players, only to be done on a successfully done game-action
-
-            otherwise, raises an exception
-
-            result format for a move is:
-                "result" : {
-                        "move": move that the server processed
-                        }
-
-            this is so the client gets feedback on what the server thinks they sent
-
-        Raises:
-            NotPlayerTurn
-            IncorrectActionData
-            IncorrectMove
-
-        """
-        result = {}
-
-        move_completed = self.move()
-
-        result["move"] = move_completed
-
-        return result
-
-        # check if player can make a move right now
-        # history is only set to an empty list once the game has started (.on_start() called)
-        # if the player hasn't made a move, update the current moves
-
-        # if the player has already made a move this round, let them update it 
-        # so long as the other player hasn't already made a move
-
-        # check if the round is over, if so, update points
-
-        # check if the game is over, notifying thusly
 
 
