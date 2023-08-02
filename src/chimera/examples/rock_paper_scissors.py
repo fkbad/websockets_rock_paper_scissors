@@ -93,8 +93,21 @@ class RockPaperScissors(TwoPlayerGame):
 
     @property
     def done(self) -> bool:
-        # TODO change lmao
-        return False
+        """
+        returns whether or not the entire game is done
+
+        for RPS, this means that one player has reached the point threshold to win
+        """
+        threshold = self.points_to_win
+
+        # assert for type checking, 
+        # done should not be called before `on_start()` which instantiates self.points
+        assert self.points is not None
+        # this check should be sufficient as `self.done` should be checked after every move
+        # and since points start at 0 and can only be incremented by 1
+        # checking at every change should means this is enough
+
+        return threshold in self.points
 
     @property
     def winner(self):
