@@ -187,16 +187,7 @@ class GameNotPlayerTurn(ErrorResponse):
     Raised when a player performs an action that can only be
     performed when it is the player's turn.
     """
-    def __init__(self):
-        code = ErrorCode.GAME_NOT_PLAYER_TURN
-        
-        # because of how dunder str method is implemented in ErrorCode
-        message = str(code)
-
-        # TODO update this after talking with borja
-        data = "not sure what to put here"
-        super().__init__(code, message, data)
-
+    pass
 
 class GameIncorrectMove(ErrorResponse):
     pass

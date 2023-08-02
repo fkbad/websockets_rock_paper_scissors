@@ -1,7 +1,163 @@
+# import this so I can reference the class Move
+# inside of itself. This postpones type evaluation
+from __future__ import annotations
+
+from typing import Dict, List, Optional, Set, Union
+
 # for some reason, importing as chimera.authoring didn't work
-from typing import Dict, List, Optional, Union
 from ..authoring import TwoPlayerGame, Player
 from .. import exceptions as exc
+
+RPSLS_RULES="""
+            Rock crushes scissors.
+            Rock crushes lizard
+
+            Scissors cuts paper
+            Scissors decapitates lizard
+
+            Paper covers rock
+            Paper disproves Spock
+
+            Lizard poisons Spock
+            Lizard eats paper
+
+            Spock vaporizes rock
+            Spock smashes scissors
+            """
+
+def get_move_set_for_game(subgame_id:str) -> Set[Move]:
+    """
+    function to return the Move set 
+    for any rock paper scissors like game
+
+    used to abstract away the definition of what valid move sets
+    and relationship are for a given game
+
+    Input:
+        subgame_id:the id for the variety of RPS, 
+                should eventually be provided via the game_options in 
+                RockPaperScissors() creation
+
+            the currently accepted subgame_id's are:
+                "rps" : classic rock paper scissors
+                "rpsls" : rock paper scissors lizard spock
+                          https://rpsls.net
+
+
+
+
+    Output:
+        Set of all allowable moves for the game
+        with each Move having their `Move.moves_i_beat` set filled in
+    """
+
+    returned_move_set: Set[Move] = set()
+    match subgame_id:
+        case "rps":
+            # create moves
+            rock = Move("rock")
+            paper = Move("paper")
+            scissors = Move("scissors")
+
+            # add relationships
+            rock.add_beats(scissors)
+            paper.add_beats(rock)
+            scissors.add_beats(paper)
+
+            returned_move_set = {rock,paper,scissors}
+
+        case "rpsls":
+            # create moves
+            rock = Move("rock")
+            paper = Move("paper")
+            scissors = Move("scissors")
+            lizard = Move("lizard")
+            spock = Move("spock")
+
+            # add relationships
+            # TODO add support for flavor text (Lizard "poisons" Spock)
+
+            # rock
+            rock.add_beats(scissors)
+            rock.add_beats(lizard)
+
+            # scissors
+            scissors.add_beats(paper)
+            scissors.add_beats(lizard)
+
+            # paper
+            paper.add_beats(rock)
+            paper.add_beats(spock)
+
+            # lizard
+            lizard.add_beats(spock)
+            lizard.add_beats(paper)
+
+            # spock
+            spock.add_beats(rock)
+            spock.add_beats(scissors)
+
+            returned_move_set = {rock,paper,scissors,lizard,spock}
+
+        case _:
+            # TODO, change this to instead be an InvalidGameOptions error 
+            # if we decide to make that exist
+            raise exc.IncorrectActionData(details=f"provided RPS-subgame id: {subgame_id} which is not either RPS or RPSLS")
+
+    # return whatever move set has been constructed
+    return returned_move_set
+
+class Move:
+    """
+    class for Moves in both rock paper scissors and 
+    rock paper scissors lizard spock
+
+    generalized to be used regardless of game
+    """
+    name: str
+    moves_i_beat: Set[Move]
+    def __init__(self,name:str) -> None:
+        """
+        Inputs:
+            name: the name of the move, 
+                eg: "rock", "lizard", "john"
+        """
+        self.name = name
+        self.moves_i_beat = set()
+
+    def __str__(self) -> str:
+        header = ""
+        name = self.name.upper().rjust(10) 
+        joiner = " beats: "
+        beats = "[" + ", ".join([str(move.name).ljust(8) for move in self.moves_i_beat]) + "]"
+
+        return_string = header + name + joiner + beats
+        return return_string
+
+    def add_beats(self,Move) -> None:
+        """
+        takes in a move and adds it to the self.moves_i_beat set
+
+        Inputs:
+            a valid Move object
+
+        Outputs:
+            nothing
+        """
+        self.moves_i_beat.add(Move)
+
+    def beats(self,opponent_move:Move) -> bool:
+        """
+        returns whether or not this move beats the opponents
+
+        Input:
+            some Move
+
+        Output:
+            True if the this move beats the opponents
+            False otherwise (or the the provided `opponent_move` is anything besides a Move)
+        """
+        return opponent_move in self.moves_i_beat
 
 
 class RockPaperScissors(TwoPlayerGame):
@@ -257,18 +413,31 @@ class RockPaperScissors(TwoPlayerGame):
                     considering adding another field for an incompleted move or disconnect
 
         Outputs:
-            result parameter of the response message to be sent out to 
+            "result" parameter of the response message to be sent out to 
             all players, only to be done on a successfully done game-action
 
             otherwise, raises an exception
+
+            result format for a move is:
+                "result" : {
+                        "move": move that the server processed
+                        }
+
+            this is so the client gets feedback on what the server thinks they sent
+
+        Raises:
+            NotPlayerTurn
+            IncorrectActionData
+            IncorrectMove
+
         """
-        if self.done:
-            raise exc.GameNotPlayerTurn
+        result = {}
 
-        player_choice = data
+        move_completed = self.move()
 
-        player_id = player.id
+        result["move"] = move_completed
 
+        return result
 
         # check if player can make a move right now
         # history is only set to an empty list once the game has started (.on_start() called)
