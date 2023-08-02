@@ -194,7 +194,7 @@ class RockPaperScissors(TwoPlayerGame):
         # simply a list where [0] is the first players move this round
         # can be indexed by player.id because 
         # id's are assigned in ascending order from 0 as players join
-        self.current_round_moves: Optional[List[Optional[int]]] = None
+        self.current_round_moves: Optional[List[Optional[Move]]] = None
 
         # ID of the winning player for the current round, if completed.
         # None in the case of a Tie, and if the round is in progress
@@ -208,7 +208,9 @@ class RockPaperScissors(TwoPlayerGame):
         # RockPaperScissors.VALID_SUBGAME_IDS
 
         # TODO have this grab from game options
-        self.subgame_id: str = "rpsls"
+
+        # self.subgame_id: str = "rpsls"
+        self.subgame_id: str = "rps"
 
         self.valid_moves: Dict[str,Move] = get_move_dict_for_game(self.subgame_id)
 
@@ -359,7 +361,10 @@ class RockPaperScissors(TwoPlayerGame):
         """
         result = {}
 
+        # get the Move object (exception is raised if invalid name is provided)
         player_move = self.get_move_from_player_data(data)
+
+        move_completed: str = self.play_move(player=player,player_move=player_move)
 
         result["move"] = move_completed
 
@@ -375,6 +380,90 @@ class RockPaperScissors(TwoPlayerGame):
         # check if the round is over, if so, update points
 
         # check if the game is over, notifying thusly
+
+    def play_move(self,player:Player, player_move: Move) -> str:
+        """
+        method to actually play a move from a particular player
+        
+        Input:
+            player: Player object corresponding to whoever is trying to make the move
+            player_move: validated Move object the player is trying to do
+
+        Output:
+            the name of the move that was successfully completed, if so
+
+        Side Affects:
+            updates the current_round moves
+            updates the overall points if a round is finished
+            updates the history if the round completes
+        """
+        """
+        workflow:
+            check if this player can make a move this round:
+                raise NotPlayerTurn if they can't
+
+            if they can make a move:
+                update the current round moves
+
+            if the round is not done yet, return and call it a day
+
+            if the round is done (both players have played a move), 
+            process it and notify update
+        """
+        player_id = player.id
+        assert self.current_round_moves is not None
+        assert player_id is not None
+        
+        # check if player can move
+
+        recorded_player_move = self.current_round_moves[player_id]
+        if recorded_player_move is not None:
+            raise exc.NotPlayerTurn(
+                    details=f"you already have made a move this round : {recorded_player_move}")
+
+        else:
+            # no recorded move for player this round
+            self.current_round_moves[player_id] = player_move
+            recorded_move = self.current_round_moves[player_id]
+            assert isinstance(recorded_move,Move)
+            
+            if not self.current_round_over:
+                # if the rounds not over after making the move
+                # then we're still waiting on the other player
+                return recorded_move.name
+
+            else:
+                # round is over!
+                self.process_current_round()    
+                self.notify_update()
+                return recorded_move.name
+            
+
+            
+
+
+    @property
+    def current_round_over(self) -> bool:
+        """
+        returns whether or not the current round is over and ready to be processed
+
+        Inputs:
+            nothing, will be looking at self.current_round_moves
+
+        Outputs:
+            True if both players have made a move (current_round_moves has two moves in it)
+            False if at least one player hasn't made a move yet
+        """
+        # should never be called before on_start()
+        assert self.current_round_moves is not None
+
+        # is_empty_move = None in self.current_round_moves
+
+        # # if there are no empty moves, then the round is done!
+        # return not is_empty_move
+
+        all_moves = all(isinstance(move,Move) for move in self.current_round_moves)
+        return all_moves
 
     def get_move_from_player_data(self,player_move_string:str):
         """
@@ -438,7 +527,13 @@ class RockPaperScissors(TwoPlayerGame):
 
         # if the round is in progress, this will then report None
         # as the moves haven't happened yet
-        move_dict = {player_name:player_move for player_name,player_move in zip(player_names,self.current_round_moves)}
+        move_dict: Dict[str,str] = {}
+
+        for player_name,player_move in zip(player_names,self.current_round_moves):
+            if player_move is not None:
+                move_dict[player_name] = player_move.name
+            else:
+                move_dict[player_name] = str(None)
 
         current_round["moves"] = move_dict
 
