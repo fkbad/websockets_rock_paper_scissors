@@ -2,7 +2,7 @@
 # inside of itself. This postpones type evaluation
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Set, Union
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 # for some reason, importing as chimera.authoring didn't work
 from ..authoring import TwoPlayerGame, Player
@@ -188,8 +188,10 @@ class RockPaperScissors(TwoPlayerGame):
 
         # move history per round, stored as a list of lists
         # add a move by doing:
-        # self.history.append([p1_move, p2_move, id of player who won the round (or None) ])
-        self.history: Optional[List[List[Optional[int]]]]= None
+        # self.history.append(
+        #         [player1 Move, player2 Move, Player who won the round (or None)]
+        #         )
+        self.history: Optional[List[List[Union[Move,Optional[Player]]]]]= None
 
         # simply a list where [0] is the first players move this round
         # can be indexed by player.id because 
@@ -359,6 +361,9 @@ class RockPaperScissors(TwoPlayerGame):
             IncorrectMove
 
         """
+        if self.done:
+            raise exc.NotPlayerTurn
+
         result = {}
 
         # get the Move object (exception is raised if invalid name is provided)
@@ -436,11 +441,89 @@ class RockPaperScissors(TwoPlayerGame):
                 # round is over!
                 self.process_current_round()    
                 self.notify_update()
+                self.reset_for_next_round()
                 return recorded_move.name
             
 
             
+    def reset_for_next_round(self):
+        """
+        after a round has been completed, and notification sent
+        reset relevant attributes to allow for next round to start
 
+        Inputs:
+            nothing
+
+        Outputs: 
+            nothing, only updating attributes 
+            .current_round_moves and .current_round_winner_id
+        """
+        self.current_round_moves = [None,None]
+        self.current_round_winner_id = None
+
+    def process_current_round(self):
+        """
+        if the current round has been completed, this method
+        determines the outcome, 
+        updates the points,
+        updates the history,
+        """
+        assert self.current_round_over
+        assert self.current_round_moves is not None
+        assert self.history is not None
+        assert self.points is not None
+
+        # determine outcome
+        winning_player: Optional[Player] = self.get_round_winner()
+
+        # update points if there wasn't a Tie
+        if winning_player  is not None:
+            winning_player_id = winning_player.id
+            assert winning_player_id is not None 
+
+            self.points[winning_player_id] += 1
+
+        # update the history
+        # self.history.append([p1_move, p2_move, id of player who won the round (or None) ])
+        history_item = [*self.current_round_moves,winning_player]
+
+        # should never be more than 3, two players, one outcome
+        assert len(history_item) == 3
+
+        self.history.append(history_item)
+
+
+    def get_round_winner(self) -> Optional[Player]:
+        """
+        for a round that has been completed, determine the winner
+        and report their id along with their name
+
+        Inputs:
+            nothing, expects a self.current_round_moves to have moves in it
+
+        Outputs:
+            Either the Player object that won the round
+            Or None in case of a Tie
+        """
+        # this is enough to assert that there are only Move
+        # objects in the self.current_round_moves
+        assert self.current_round_over
+
+        move1,move2 = self.current_round_moves
+
+
+        if move1.beats(move2):
+            # assign current_round_winner_id so game_state can easily access 
+            # the information 
+            self.current_round_winner_id = 0
+            return self.get_player_by_id(0)
+
+        elif move2.beats(move1):
+            self.current_round_winner_id = 1
+            return self.get_player_by_id(1)
+        else:
+            # neither move beats the other
+            return None
 
     @property
     def current_round_over(self) -> bool:
@@ -592,14 +675,14 @@ class RockPaperScissors(TwoPlayerGame):
         assert self.history is not None
 
         p1_name, p2_name = player_names
-        for p1_move,p2_move,optional_winner_id in self.history:
+        for p1_move,p2_move,optional_winning_Player in self.history:
             round = {}
             moves = {p1_name:p1_move, 
                      p2_name:p2_move}
 
             winner_name = None
-            if optional_winner_id is not None:
-                winner_name = player_names[optional_winner_id]
+            if optional_winning_Player is not None:
+                optional_winning_Player.name
 
             round["moves"] = moves
             round["winner"] = winner_name
